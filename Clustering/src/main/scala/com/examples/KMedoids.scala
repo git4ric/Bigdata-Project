@@ -5,7 +5,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.log4j.Logger
 
-object MainExample {
+object KMedoids {
 
   def main(arg: Array[String]) {
 
