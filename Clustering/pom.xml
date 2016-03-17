@@ -28,8 +28,6 @@
 	</repositories>
 
 	<build>
-		<sourceDirectory>src/main/scala</sourceDirectory>
-		<testSourceDirectory>src/test/scala</testSourceDirectory>
 		<plugins>
 			<plugin>
 		        <groupId>org.apache.maven.plugins</groupId>
@@ -40,10 +38,75 @@
 		          <target>1.7</target>
 		        </configuration>
 		    </plugin>
-		</plugins>
+		    <plugin>
+		        <groupId>org.scala-tools</groupId>
+		        <artifactId>maven-scala-plugin</artifactId>
+		        <version>2.15.2</version>
+		        <executions>
+		          <execution>
+		            <phase>process-resources</phase>
+		            <goals>
+		              <goal>add-source</goal>
+		              <goal>compile</goal>
+		            </goals>
+		          </execution>
+		          <execution>
+		            <id>scala-test-compile</id>
+		            <phase>process-test-resources</phase>
+		            <goals>
+		              <goal>testCompile</goal>
+		            </goals>
+		          </execution>
+		        </executions>
+		        <configuration>
+		          <scalaVersion>${scala.version}</scalaVersion>
+		        </configuration>
+		      </plugin>
+		      <plugin>
+		        <groupId>org.apache.maven.plugins</groupId>
+		        <artifactId>maven-shade-plugin</artifactId>
+		        <version>2.4.2</version>
+		        <executions>
+		          <execution>
+		            <phase>package</phase>
+		            <goals>
+		              <goal>shade</goal>
+		            </goals>
+		            <configuration>
+		              <createDependencyReducedPom>false</createDependencyReducedPom>
+		              <!-- This is an Mac OSX issue because the default filesystem is case-insensitive,
+		                   so multiple versions of files (w/ different cases) clash when Hadoop tries
+		                   to unpack the jar. -->
+		              <filters>
+		                <filter>
+		                  <artifact>*:*</artifact>
+		                  <excludes>
+		                    <exclude>META-INF/*.SF</exclude>
+		                    <exclude>META-INF/*.DSA</exclude>
+		                    <exclude>META-INF/*.RSA</exclude>
+		                    <exclude>META-INF/LICENSE*</exclude>
+		                    <exclude>license/*</exclude>
+		                  </excludes>
+		                </filter>
+		              </filters>
+		            </configuration>
+		          </execution>
+		        </executions>
+		      </plugin>		      
+		</plugins>		
 	</build>
 
 	<dependencies>
+	    <dependency>
+	      <groupId>org.apache.hadoop</groupId>
+	      <artifactId>hadoop-client</artifactId>
+	      <version>${hadoop.version}</version>
+	    </dependency>
+	    <dependency>
+	      <groupId>args4j</groupId>
+	      <artifactId>args4j</artifactId>
+	      <version>2.32</version>
+	    </dependency>
 		<!-- Scala and Spark dependencies -->
 		<dependency>
 			<groupId>org.scala-lang</groupId>
