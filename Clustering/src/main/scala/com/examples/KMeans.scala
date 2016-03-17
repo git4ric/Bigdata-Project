@@ -30,8 +30,8 @@ object KMeans {
 	    val textFile = sc.textFile(args.input())
 	    				.map(line => {
 	    					val arr = line.split("\t")
-	    					val x = arr(0).trim().toDouble
-	    					val y = arr(1).trim().toDouble
+	    					val x = arr(0).trim().toFloat
+	    					val y = arr(1).trim().toFloat
 	    					new DataPoint(x,y)
 	    				})
 	    				
@@ -39,11 +39,13 @@ object KMeans {
 
 		val centroids = Array.fill(7) { DataPoint.random }
 
-		val resultCentroids = Kmeans(dataPoints, centroids, 0.2)
-		println(resultCentroids)
+		val resultCentroids = Kmeans(dataPoints, centroids, 0.2f)
+		val gg = sc.parallelize(resultCentroids)
+		
+		gg.saveAsTextFile(args.output())
 	}
 
-	def Kmeans(points : Seq[ DataPoint ], centroids : Seq[ DataPoint ], delta : Double) : Seq[ DataPoint ] = {
+	def Kmeans(points : Seq[ DataPoint ], centroids : Seq[ DataPoint ], delta : Float) : Seq[ DataPoint ] = {
 
 		// Group the points according to their distance to centroid
 		val cluster = points.groupBy { x =>
