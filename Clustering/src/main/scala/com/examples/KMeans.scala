@@ -5,6 +5,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.log4j.Logger
 import org.rogach.scallop._
+import java.lang.Float
 
 class Conf(args : Seq[ String ]) extends ScallopConf(args) {
 	mainOptions = Seq(input, output)
@@ -29,9 +30,9 @@ object KMeans {
 	    
 	    val textFile = sc.textFile(args.input())
 	    				.map(line => {
-	    					val arr = line.split("\t")
-	    					val x = arr(0).trim().toFloat
-	    					val y = arr(1).trim().toFloat
+	    					val arr = line.split(",")
+	    					val x = Float.valueOf(arr(0).trim())
+	    					val y = Float.valueOf(arr(1).trim())
 	    					new DataPoint(x,y)
 	    				})
 	    				
@@ -90,6 +91,7 @@ object KMeans {
 		}
 	}
 }
+
 
 
 

@@ -1,6 +1,7 @@
 package com.examples
 
-class DataPoint(x : Float, y : Float) {
+@SerialVersionUID(100L)
+@serializable case class DataPoint(x : Float, y : Float) {
 	val myX = x
 	val myY = y
 	
@@ -17,11 +18,12 @@ class DataPoint(x : Float, y : Float) {
 								+ (this.myY - other.myY)*(this.myY - other.myY))
 		result.floatValue()					
 	}
-}
+	
+} 
 
 object DataPoint {
 	
 	def random() = {
-		new DataPoint(Math.random().floatValue(), Math.random().floatValue())
+		new DataPoint(Math.random().floatValue(), Math.random().floatValue()) 
 	}
 }
