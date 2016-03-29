@@ -1,3 +1,0 @@
-(DataPoint(7.1714277,4.8683677),[Lcom.examples.DataPoint;@1637a184)
-(DataPoint(8.832848,22.434591),[Lcom.examples.DataPoint;@76cb9d8e)
-(DataPoint(23.894184,12.469224),[Lcom.examples.DataPoint;@5ddb3952)
