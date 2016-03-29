@@ -1,14 +1,24 @@
-#Article: a
+#Article: aa
 #Type: regular article
 
 a b a c d
 
-#Article: b
+#Article: bb
 #Type: regular article
 
-q w e r
+q w e r p o l i c e
 
-#Article: c
+#Article: cc
 #Type: regular article
 
 a a b b
+
+#Article: dd
+#Type: regular article
+
+p o l i c e
+
+#Article: ff
+#Type: regular article
+
+a b a b
