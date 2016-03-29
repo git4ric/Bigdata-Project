@@ -36,9 +36,8 @@ object TFIDFRepresentation {
 	    hconf.set("textinputformat.record.delimiter", "#Article:")
 	    
 	    val dataset = sc.newAPIHadoopFile(args.input(), classOf[TextInputFormat], classOf[LongWritable], classOf[Text], hconf)
-	    				.map(x => x._2.toString())
-					.filter( x => x.isEmpty() == false)
-	    				.map(x => x.replaceAll("#Type: regular article","")
+	    				.map(x => x._2.toString().filter( x => x.isEmpty() == false)
+	    						.replaceAll("#Type: regular article","")
 	    						.replaceAll("\\W", " ")
 							.replaceAll("\\s\\s+"," ")
 							.split(" ").toSeq.drop(1))

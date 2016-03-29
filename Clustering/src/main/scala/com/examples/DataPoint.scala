@@ -24,6 +24,8 @@ package com.examples
 object DataPoint {
 	
 	def random() = {
-		new DataPoint(Math.random().floatValue(), Math.random().floatValue()) 
+		val rnd = new scala.util.Random
+		val range = 0 to 30
+		new DataPoint(rnd.nextInt(range length).toFloat, rnd.nextInt(range length).toFloat)  
 	}
 }
