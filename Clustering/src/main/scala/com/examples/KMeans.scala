@@ -9,10 +9,11 @@ import org.rogach.scallop._
 import java.lang.Float
 
 class Conf(args : Seq[ String ]) extends ScallopConf(args) {
-	mainOptions = Seq(input, output, clusters)
+	mainOptions = Seq(input, output, clusters, iterations)
 	val input = opt[ String ](descr = "input path", required = true)
 	val output = opt[ String ](descr = "output path", required = true)
 	val clusters = opt[ String ](descr = "No. of clusters", required = true)
+	val iterations = opt[ String ](descr = "No. of iterations", required = true)
 }
 
 object KMeans {
