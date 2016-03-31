@@ -4,37 +4,169 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.log4j.Logger
+import org.apache.hadoop.fs._
+import org.rogach.scallop._
+import java.lang.Float
+
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
+import org.apache.hadoop.conf.Configuration
+import org.apache.spark.mllib.feature.HashingTF
+import org.apache.spark.mllib.linalg.Vector
+import org.apache.spark.mllib.feature.IDF
+import org.apache.hadoop.io.{ LongWritable, Text }
+import org.apache.spark.rdd.RDD
 
 object KMedoids {
+	val log = Logger.getLogger(getClass().getName())
 
-  def main(arg: Array[String]) {
+	def closestCentroid(vec : Map[ Int, Double ], centroids : Array[ Map[ Int, Double ] ]) : Map[ Int, Double ] = {
+		var distance = Double.PositiveInfinity
+		var bestIndex = 0
+		for (i <- 0 until centroids.length) {
+			val tempDistance = cosineDistance(vec, centroids(i))
+			if (tempDistance < distance) {
+				distance = tempDistance
+				bestIndex = i
+			}
+		}
+		centroids(bestIndex)
+	}
+	
+	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[Double] = {
+		
+		var result = new Array[Double](centroids.size)
+		
+		for (i <- 0 until centroids.length) {
+			var distance_i = 0.0
+			for (j <- 0 until centroids.length) {
+				if(i != j)
+				{
+					distance_i = distance_i + cosineDistance(centroids(i), centroids(j))
+				}				
+			}
+			result.update(i, distance_i/centroids.size)
+		}
+		result
+	}
 
-    var logger = Logger.getLogger(this.getClass())
+	def dotProd(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
+		var sum = 0.0
 
-    if (arg.length < 2) {
-      logger.error("=> wrong parameters number")
-      System.err.println("Usage: MainExample <path-to-files> <output-path>")
-      System.exit(1)
-    }
+		vec1.map(f => if (vec2.contains(f._1)) {
+			sum = sum + (f._2 * vec2.apply(f._1))
+		})
+		sum
+	}
 
-    val jobName = "MainExample"
+	def norm(vec : Map[ Int, Double ]) : Double = {
+		val dot = dotProd(vec, vec)
+		val result = math.sqrt(dot)
+		result
+	}
 
-    val conf = new SparkConf().setAppName(jobName)
-    val sc = new SparkContext(conf)
+	def cosineSimilarity(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
+		dotProd(vec1, vec2) / (norm(vec1) * norm(vec2))
+	}
 
-    val pathToFiles = arg(0)
-    val outputPath = arg(1)
+	def cosineDistance(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
+		val result = 1 - (Math.acos(cosineSimilarity(vec1, vec2)) / 3.14)
+		result
+	}
 
-    logger.info("=> jobName \"" + jobName + "\"")
-    logger.info("=> pathToFiles \"" + pathToFiles + "\"")
+	def mergeMap(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Map[ Int, Double ] = {
+		val list = vec1.toList ++ vec2.toList
+		val merged = list.groupBy(_._1).map { case (k, v) => k -> v.map(_._2).sum }
+		merged
+	}
 
-    val files = sc.textFile(pathToFiles)
+	def main(argv : Array[ String ]) {
 
-    // do your work here
-    val rowsWithoutSpaces = files.map(_.replaceAll(" ", ","))
+		var logger = Logger.getLogger(this.getClass())
 
-    // and save the result
-    rowsWithoutSpaces.saveAsTextFile(outputPath)
+		val jobName = "KMedoids"
 
-  }
+		val conf = new SparkConf().setAppName(jobName)
+		val sc = new SparkContext(conf)
+		val args = new Conf(argv)
+		log.info("****** ~~~~~~ Input: " + args.input())
+		log.info("****** ~~~~~~ Output: " + args.output())
+		log.info("****** ~~~~~~ No. of Clusters: " + args.clusters())
+		log.info("****** ~~~~~~ No. of iterations: " + args.iterations())
+		FileSystem.get(sc.hadoopConfiguration).delete(new Path(args.output()), true)
+
+		val hconf = new Configuration
+		hconf.set("textinputformat.record.delimiter", "#Article:")
+
+		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
+			.map(x => x._2.toString())
+			.filter(x => x.isEmpty() == false)
+			.map(x => x.replaceAll("#Type: regular article", "")
+				.replaceAll("[^a-zA-Z]", " ")
+				.replaceAll("\\s\\s+", " ")
+				.split(" ").toSeq.drop(1))
+
+		val hashingTF = new HashingTF()
+		val tf : RDD[ Vector ] = hashingTF.transform(dataset)
+		tf.cache()
+		val idf = new IDF(minDocFreq = 2).fit(tf)
+		val tfidf : RDD[ Vector ] = idf.transform(tf)
+
+		val gg = tfidf.map(x => x.toSparse)
+
+		val articles = gg.map(x => (x.indices zip x.values).toMap)
+
+		var medoids = articles.takeSample(false, args.clusters().toInt)
+
+		println("Start medoids")
+		println(medoids.deep.mkString("\n"))
+
+		var iteration = 0
+
+		while (iteration < args.iterations().toInt) {
+
+			// Get the closest medoids to each article
+			// and map them as medoids -> (article)
+			val clusters = articles.map(article => (closestCentroid(article, medoids), (article))).groupByKey()
+			
+			medoids = clusters.map(f => {
+				
+				val m = f._1
+				var best = Double.PositiveInfinity
+				var bestMedoid = f._1
+				while(f._2.iterator.hasNext)
+				{
+					val o = f._2.iterator.next()
+					var distance = 0.0
+					var count = 0
+					while(f._2.iterator.hasNext)
+					{
+						distance = distance + cosineDistance(o, f._2.iterator.next())
+						count = count + 1
+					}
+					
+					distance = distance + cosineDistance(o, m)
+					distance = distance / count
+					
+					if(distance < best)
+					{
+						best = distance
+						bestMedoid = o
+					}
+				}
+				(bestMedoid)
+			}).toArray()
+
+			iteration = iteration + 1
+
+		}
+		
+		val printThis = averageDistanceBetweenCentroids(medoids)
+
+		println(printThis.mkString("\n"))
+
+		println("medoids")
+		println(medoids.deep.mkString("\n"))
+	}
 }
+
+
