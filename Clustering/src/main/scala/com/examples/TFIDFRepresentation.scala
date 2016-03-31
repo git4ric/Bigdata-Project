@@ -31,6 +31,23 @@ object TFIDFRepresentation {
 		}
 		centroids(bestIndex)
 	}
+	
+	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[Double] = {
+		
+		var result = new Array[Double](centroids.size)
+		
+		for (i <- 0 until centroids.length) {
+			var distance_i = 0.0
+			for (j <- 0 until centroids.length) {
+				if(i != j)
+				{
+					distance_i = distance_i + cosineDistance(centroids(i), centroids(j))
+				}				
+			}
+			result.update(i, distance_i/centroids.size)
+		}
+		result
+	}
 
 	def dotProd(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
 		var sum = 0.0
@@ -48,7 +65,7 @@ object TFIDFRepresentation {
 	}
 
 	def cosineSimilarity(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
-		dotProd(vec1, vec2).toFloat / (norm(vec1) * norm(vec2))
+		dotProd(vec1, vec2) / (norm(vec1) * norm(vec2))
 	}
 
 	def cosineDistance(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
@@ -84,27 +101,24 @@ object TFIDFRepresentation {
 			.map(x => x._2.toString())
 			.filter(x => x.isEmpty() == false)
 			.map(x => x.replaceAll("#Type: regular article", "")
-				.replaceAll("\\W", " ")
+				.replaceAll("[^a-zA-Z]", " ")
 				.replaceAll("\\s\\s+", " ")
 				.split(" ").toSeq.drop(1))
 
 		val hashingTF = new HashingTF()
 		val tf : RDD[ Vector ] = hashingTF.transform(dataset)
 		tf.cache()
-		val idf = new IDF().fit(tf)
+		val idf = new IDF(minDocFreq = 2).fit(tf)
 		val tfidf : RDD[ Vector ] = idf.transform(tf)
 
 		val gg = tfidf.map(x => x.toSparse)
 
 		val articles = gg.map(x => (x.indices zip x.values).toMap)
 
-		println("Dataset: ")
-		articles.foreach(println)
+		var centroids = articles.takeSample(false, args.clusters().toInt)
 
-		var centroids = articles.takeSample(false, args.clusters().toInt, 20)
-
-		println("Start centroids")
-		println(centroids.deep.mkString("\n"))
+//		println("Start centroids")
+//		println(centroids.deep.mkString("\n"))
 
 		var iteration = 0
 
@@ -135,10 +149,16 @@ object TFIDFRepresentation {
 			iteration = iteration + 1
 
 		}
+		
+		val printThis = averageDistanceBetweenCentroids(centroids)
 
-		println(centroids.deep.mkString("\n"))
+		println(printThis.mkString("\n"))
+
+		//println("centroids")
+		//println(centroids.deep.mkString("\n"))
 
 	}
 }
+
 
 
