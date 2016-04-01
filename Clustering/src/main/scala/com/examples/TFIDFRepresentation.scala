@@ -93,16 +93,24 @@ object TFIDFRepresentation {
 		log.info("****** ~~~~~~ No. of iterations: " + args.iterations())
 		FileSystem.get(sc.hadoopConfiguration).delete(new Path(args.output()), true)
 
-		val hconf = new Configuration
-		hconf.set("textinputformat.record.delimiter", ".I")
+//		val hconf = new Configuration
+//		hconf.set("textinputformat.record.delimiter", ".I")
 
-		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
-			.map(x => x._2.toString())
-			.filter(x => x.isEmpty() == false)
-			.map(x => {
-				val y = x.split(".W")
-				(y(0).trim().toInt,y(1).trim().split(" ").toSeq)						
-			})
+//		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
+//			.map(x => x._2.toString())
+//			.filter(x => x.isEmpty() == false)
+//			.map(x => {
+//				val y = x.split(".W")
+//				(y(0).trim().toInt,y(1).trim().split(" ").toSeq)						
+//			})
+			
+		val dataset = sc.textFile(args.input())
+						.map(x => {
+							val y = x.split("\\t")
+							val z = y(0)
+							val a = y(1).trim().split(" ").toSeq
+							(z,a)
+						})
 				
 //		println("Dataset: ")
 //		dataset.foreach(println)
@@ -123,8 +131,8 @@ object TFIDFRepresentation {
 
 		var centroids = articles.takeSample(false, args.clusters().toInt).map(x => x._2)
 
-		println("Start centroids")
-		println(centroids.deep.mkString("\n"))
+//		println("Start centroids")
+//		println(centroids.deep.mkString("\n"))
 
 		var iteration = 0
 
@@ -168,9 +176,10 @@ object TFIDFRepresentation {
 //		println("centroids")
 //		println(centroids.deep.mkString("\n"))
 		
-		val clusters = articles.map(article => (closestCentroid(article._2, centroids), article._1)).groupByKey()
+		val clusters = articles.map(article => (closestCentroid(article._2, centroids), article._1)).groupByKey().map(x => (x._1,x._2.count(x => (x.isEmpty() == false))))
 
-		clusters.values.saveAsTextFile(args.output())
+		clusters.saveAsTextFile(args.output())
 	}
 }
+
 
