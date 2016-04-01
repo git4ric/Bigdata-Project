@@ -20,31 +20,30 @@ object KMedoids {
 	val log = Logger.getLogger(getClass().getName())
 
 	def closestCentroid(vec : Map[ Int, Double ], centroids : Array[ Map[ Int, Double ] ]) : Map[ Int, Double ] = {
-		var distance = Double.PositiveInfinity
+		var distance = 0.0
 		var bestIndex = 0
 		for (i <- 0 until centroids.length) {
 			val tempDistance = cosineDistance(vec, centroids(i))
-			if (tempDistance < distance) {
+			if (tempDistance > distance) {
 				distance = tempDistance
 				bestIndex = i
 			}
 		}
 		centroids(bestIndex)
 	}
-	
-	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[Double] = {
-		
-		var result = new Array[Double](centroids.size)
-		
+
+	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[ Double ] = {
+
+		var result = new Array[ Double ](centroids.size)
+
 		for (i <- 0 until centroids.length) {
 			var distance_i = 0.0
 			for (j <- 0 until centroids.length) {
-				if(i != j)
-				{
+				if (i != j) {
 					distance_i = distance_i + cosineDistance(centroids(i), centroids(j))
-				}				
+				}
 			}
-			result.update(i, distance_i/centroids.size)
+			result.update(i, distance_i / centroids.size)
 		}
 		result
 	}
@@ -79,6 +78,10 @@ object KMedoids {
 		merged
 	}
 
+	def medoidDistance(vec1 : Map[ Int, Double ]) : Double = {
+		0.0
+	}
+
 	def main(argv : Array[ String ]) {
 
 		var logger = Logger.getLogger(this.getClass())
@@ -108,17 +111,30 @@ object KMedoids {
 		val hashingTF = new HashingTF()
 		val tf : RDD[ Vector ] = hashingTF.transform(dataset)
 		tf.cache()
-		val idf = new IDF(minDocFreq = 2).fit(tf)
+		val idf = new IDF(minDocFreq = 1).fit(tf)
 		val tfidf : RDD[ Vector ] = idf.transform(tf)
 
 		val gg = tfidf.map(x => x.toSparse)
 
 		val articles = gg.map(x => (x.indices zip x.values).toMap)
 
+//		println("Data: ")
+//		articles.foreach(println)
+
 		var medoids = articles.takeSample(false, args.clusters().toInt)
 
 		println("Start medoids")
 		println(medoids.deep.mkString("\n"))
+		
+		val test = articles.collect()
+		
+//		for (i <- 0 until test.length) {			
+//			for(j <- 0 until medoids.length){
+//				val distance = cosineDistance(test(i), medoids(j))
+//				println("Distance between " + i.toString() + " and " + j.toString() + " is: " + distance.toString())
+//			}
+//			
+//		}
 
 		var iteration = 0
 
@@ -126,40 +142,45 @@ object KMedoids {
 
 			// Get the closest medoids to each article
 			// and map them as medoids -> (article)
-			val clusters = articles.map(article => (closestCentroid(article, medoids), (article))).groupByKey()
-			
-			medoids = clusters.map(f => {
-				
+			val clusters = articles.map(article => (closestCentroid(article, medoids), article)).groupByKey()
+
+//			println("Cluster count: " + clusters.count().toString())
+//			clusters.keys.foreach(println)
+
+			val newMedoids = clusters.map(f => {
+
 				val m = f._1
 				var best = Double.PositiveInfinity
 				var bestMedoid = f._1
-				while(f._2.iterator.hasNext)
-				{
-					val o = f._2.iterator.next()
+
+				val temp = f._2
+
+				f._2.foreach(p => {
+
+					val o = p
 					var distance = 0.0
-					var count = 0
-					while(f._2.iterator.hasNext)
-					{
-						distance = distance + cosineDistance(o, f._2.iterator.next())
-						count = count + 1
-					}
-					
+					temp.foreach(x => {
+						distance = distance + cosineDistance(o, x)
+					})
+
 					distance = distance + cosineDistance(o, m)
-					distance = distance / count
-					
-					if(distance < best)
-					{
+					distance = distance / temp.size
+
+					if (distance < best) {
 						best = distance
 						bestMedoid = o
 					}
-				}
+				})
 				(bestMedoid)
-			}).toArray()
+			})
+			
+//			println("New Medoids size: " + newMedoids.count().toString())
+
+			medoids = newMedoids.collect().clone()
 
 			iteration = iteration + 1
-
 		}
-		
+
 		val printThis = averageDistanceBetweenCentroids(medoids)
 
 		println(printThis.mkString("\n"))
@@ -168,5 +189,6 @@ object KMedoids {
 		println(medoids.deep.mkString("\n"))
 	}
 }
+
 
 
