@@ -20,11 +20,11 @@ object KMedoids {
 	val log = Logger.getLogger(getClass().getName())
 
 	def closestCentroid(vec : Map[ Int, Double ], centroids : Array[ Map[ Int, Double ] ]) : Map[ Int, Double ] = {
-		var distance = 0.0
+		var distance = Double.PositiveInfinity
 		var bestIndex = 0
 		for (i <- 0 until centroids.length) {
 			val tempDistance = cosineDistance(vec, centroids(i))
-			if (tempDistance > distance) {
+			if (tempDistance < distance) {
 				distance = tempDistance
 				bestIndex = i
 			}
@@ -68,7 +68,7 @@ object KMedoids {
 	}
 
 	def cosineDistance(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
-		val result = 1 - (Math.acos(cosineSimilarity(vec1, vec2)) / 3.14)
+		val result = 1 - cosineSimilarity(vec1, vec2)
 		result
 	}
 
@@ -118,23 +118,23 @@ object KMedoids {
 
 		val articles = gg.map(x => (x.indices zip x.values).toMap)
 
-//		println("Data: ")
-//		articles.foreach(println)
+		//		println("Data: ")
+		//		articles.foreach(println)
 
 		var medoids = articles.takeSample(false, args.clusters().toInt)
 
 		println("Start medoids")
 		println(medoids.deep.mkString("\n"))
-		
+
 		val test = articles.collect()
-		
-//		for (i <- 0 until test.length) {			
-//			for(j <- 0 until medoids.length){
-//				val distance = cosineDistance(test(i), medoids(j))
-//				println("Distance between " + i.toString() + " and " + j.toString() + " is: " + distance.toString())
-//			}
-//			
-//		}
+
+		//		for (i <- 0 until test.length) {			
+		//			for(j <- 0 until medoids.length){
+		//				val distance = cosineDistance(test(i), medoids(j))
+		//				println("Distance between " + i.toString() + " and " + j.toString() + " is: " + distance.toString())
+		//			}
+		//			
+		//		}
 
 		var iteration = 0
 
@@ -144,8 +144,8 @@ object KMedoids {
 			// and map them as medoids -> (article)
 			val clusters = articles.map(article => (closestCentroid(article, medoids), article)).groupByKey()
 
-//			println("Cluster count: " + clusters.count().toString())
-//			clusters.keys.foreach(println)
+			//			println("Cluster count: " + clusters.count().toString())
+			//			clusters.keys.foreach(println)
 
 			val newMedoids = clusters.map(f => {
 
@@ -173,8 +173,8 @@ object KMedoids {
 				})
 				(bestMedoid)
 			})
-			
-//			println("New Medoids size: " + newMedoids.count().toString())
+
+			//			println("New Medoids size: " + newMedoids.count().toString())
 
 			medoids = newMedoids.collect().clone()
 

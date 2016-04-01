@@ -31,20 +31,19 @@ object TFIDFRepresentation {
 		}
 		centroids(bestIndex)
 	}
-	
-	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[Double] = {
-		
-		var result = new Array[Double](centroids.size)
-		
+
+	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[ Double ] = {
+
+		var result = new Array[ Double ](centroids.size)
+
 		for (i <- 0 until centroids.length) {
 			var distance_i = 0.0
 			for (j <- 0 until centroids.length) {
-				if(i != j)
-				{
+				if (i != j) {
 					distance_i = distance_i + cosineDistance(centroids(i), centroids(j))
-				}				
+				}
 			}
-			result.update(i, distance_i/centroids.size)
+			result.update(i, distance_i / centroids.size)
 		}
 		result
 	}
@@ -69,7 +68,7 @@ object TFIDFRepresentation {
 	}
 
 	def cosineDistance(vec1 : Map[ Int, Double ], vec2 : Map[ Int, Double ]) : Double = {
-		val result = 1 - (Math.acos(cosineSimilarity(vec1, vec2)) / 3.14)
+		val result = 1 - cosineSimilarity(vec1, vec2)
 		result
 	}
 
@@ -108,17 +107,20 @@ object TFIDFRepresentation {
 		val hashingTF = new HashingTF()
 		val tf : RDD[ Vector ] = hashingTF.transform(dataset)
 		tf.cache()
-		val idf = new IDF(minDocFreq = 2).fit(tf)
+		val idf = new IDF(minDocFreq = 1).fit(tf)
 		val tfidf : RDD[ Vector ] = idf.transform(tf)
 
 		val gg = tfidf.map(x => x.toSparse)
 
 		val articles = gg.map(x => (x.indices zip x.values).toMap)
 
+		//		println("Data: ")
+		//		articles.foreach(println)
+
 		var centroids = articles.takeSample(false, args.clusters().toInt)
 
-//		println("Start centroids")
-//		println(centroids.deep.mkString("\n"))
+		println("Start centroids")
+		println(centroids.deep.mkString("\n"))
 
 		var iteration = 0
 
@@ -128,12 +130,17 @@ object TFIDFRepresentation {
 			// and map them as centroid -> (article,1)
 			// Merge the articles and sum their occurrence within each centroid cluster to create a new centroid
 			val clusters = articles.map(article => (closestCentroid(article, centroids), (article, 1)))
-				.reduceByKeyLocally({
-					case ((articleA, occurA), (articleB, occurB)) => (mergeMap(articleA, articleB), occurA + occurB)
-				})
+
+			val newCentroids = clusters.reduceByKeyLocally({
+				case ((articleA, occurA), (articleB, occurB)) => (mergeMap(articleA, articleB), occurA + occurB)
+			})
+
+			//			val test = clusters.groupByKey()	
+			//			println("Cluster count: " + test.count().toString())
+			//			test.foreach(println)
 
 			// Divide each value of new centroid by cluster size to get mean	
-			val average = clusters.map({
+			val average = newCentroids.map({
 				case (centroid, (newCentroid, clusterSize)) =>
 					(centroid, newCentroid.map(x => (x._1, x._2 / clusterSize)))
 			})
@@ -149,13 +156,13 @@ object TFIDFRepresentation {
 			iteration = iteration + 1
 
 		}
-		
+
 		val printThis = averageDistanceBetweenCentroids(centroids)
 
 		println(printThis.mkString("\n"))
 
-		//println("centroids")
-		//println(centroids.deep.mkString("\n"))
+		println("centroids")
+		println(centroids.deep.mkString("\n"))
 
 	}
 }
