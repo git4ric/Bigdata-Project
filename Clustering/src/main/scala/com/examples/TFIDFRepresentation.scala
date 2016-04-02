@@ -174,7 +174,7 @@ object TFIDFRepresentation {
 		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
 		
 		println("***** ~~~~ Cluster -> No. of documents ")
-		numDocumentInClusters.foreach(println)
+		println(numDocumentInClusters.toArray().mkString("\n"))
 		
 		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
 											
