@@ -97,44 +97,40 @@ object KMedoids {
 		log.info("****** ~~~~~~ No. of iterations: " + args.iterations())
 		FileSystem.get(sc.hadoopConfiguration).delete(new Path(args.output()), true)
 
-		val hconf = new Configuration
-		hconf.set("textinputformat.record.delimiter", "#Article:")
+//		val hconf = new Configuration
+//		hconf.set("textinputformat.record.delimiter", "#Article:")
 
-		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
-			.map(x => x._2.toString())
-			.filter(x => x.isEmpty() == false)
-			.map(x => x.replaceAll("#Type: regular article", "")
-				.replaceAll("[^a-zA-Z]", " ")
-				.replaceAll("\\s\\s+", " ")
-				.split(" ").toSeq.drop(1))
+//		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
+//			.map(x => x._2.toString())
+//			.filter(x => x.isEmpty() == false)
+//			.map(x => x.replaceAll("#Type: regular article", "")
+//				.replaceAll("[^a-zA-Z]", " ")
+//				.replaceAll("\\s\\s+", " ")
+//				.split(" ").toSeq.drop(1))
+				
+		val dataset = sc.textFile(args.input())
+				.map(x => {
+					val y = x.split("\\t")
+					val z = y(0)
+					val a = y(1).trim().split(" ").toSeq
+					(z,a)
+				})
 
 		val hashingTF = new HashingTF()
-		val tf : RDD[ Vector ] = hashingTF.transform(dataset)
-		tf.cache()
-		val idf = new IDF(minDocFreq = 1).fit(tf)
-		val tfidf : RDD[ Vector ] = idf.transform(tf)
+		
+		val tf = dataset.map(x => (x._1,hashingTF.transform(x._2))).cache()
+		val idf = new IDF(minDocFreq = 50).fit(tf.values)
+		
+		val tfidf = tf.map(x => (x._1,idf.transform(x._2))) 
 
-		val gg = tfidf.map(x => x.toSparse)
+		val gg = tfidf.map(x => (x._1,x._2.toSparse))
 
-		val articles = gg.map(x => (x.indices zip x.values).toMap)
+		val articles = gg.map(x => (x._1,(x._2.indices zip x._2.values).toMap)).cache()
 
 		//		println("Data: ")
 		//		articles.foreach(println)
 
-		var medoids = articles.takeSample(false, args.clusters().toInt)
-
-		println("Start medoids")
-		println(medoids.deep.mkString("\n"))
-
-		val test = articles.collect()
-
-		//		for (i <- 0 until test.length) {			
-		//			for(j <- 0 until medoids.length){
-		//				val distance = cosineDistance(test(i), medoids(j))
-		//				println("Distance between " + i.toString() + " and " + j.toString() + " is: " + distance.toString())
-		//			}
-		//			
-		//		}
+		var medoids = articles.takeSample(false, args.clusters().toInt).map(x => x._2)
 
 		var iteration = 0
 
@@ -142,7 +138,7 @@ object KMedoids {
 
 			// Get the closest medoids to each article
 			// and map them as medoids -> (article)
-			val clusters = articles.map(article => (closestCentroid(article, medoids), article)).groupByKey()
+			val clusters = articles.map(article => (closestCentroid(article._2, medoids), article._2)).groupByKey()
 
 			println("Cluster count: " + clusters.count().toString())
 			clusters.foreach(println)
@@ -174,19 +170,15 @@ object KMedoids {
 				(bestMedoid)
 			})
 
-			//			println("New Medoids size: " + newMedoids.count().toString())
-
 			medoids = newMedoids.collect().clone()
 
 			iteration = iteration + 1
 		}
 
+		val clusters = articles.map(article => (closestCentroid(article._2, medoids), article._1)).groupByKey().map(x => (x._1,x._2.count(x => (x.isEmpty() == false))))
+		clusters.coalesce(1, false).saveAsTextFile(args.output())
 		val printThis = averageDistanceBetweenCentroids(medoids)
-
-		println(printThis.mkString("\n"))
-
-		println("medoids")
-		println(medoids.deep.mkString("\n"))
+		println("***** ~~~~ Average Distance between Centroids: " + printThis.toString())
 	}
 }
 

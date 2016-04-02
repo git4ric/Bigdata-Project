@@ -93,16 +93,24 @@ object TFIDFRepresentation {
 		log.info("****** ~~~~~~ No. of iterations: " + args.iterations())
 		FileSystem.get(sc.hadoopConfiguration).delete(new Path(args.output()), true)
 
-		val hconf = new Configuration
-		hconf.set("textinputformat.record.delimiter", ".I")
+//		val hconf = new Configuration
+//		hconf.set("textinputformat.record.delimiter", ".I")
 
-		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
-			.map(x => x._2.toString())
-			.filter(x => x.isEmpty() == false)
-			.map(x => {
-				val y = x.split(".W")
-				(y(0).trim().toInt,y(1).trim().split(" ").toSeq)						
-			})
+//		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
+//			.map(x => x._2.toString())
+//			.filter(x => x.isEmpty() == false)
+//			.map(x => {
+//				val y = x.split(".W")
+//				(y(0).trim().toInt,y(1).trim().split(" ").toSeq)						
+//			})
+			
+		val dataset = sc.textFile(args.input())
+						.map(x => {
+							val y = x.split("\\t")
+							val z = y(0)
+							val a = y(1).trim().split(" ").toSeq
+							(z,a)
+						})
 				
 //		println("Dataset: ")
 //		dataset.foreach(println)
@@ -110,7 +118,7 @@ object TFIDFRepresentation {
 		val hashingTF = new HashingTF()
 		
 		val tf = dataset.map(x => (x._1,hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 100).fit(tf.values)
+		val idf = new IDF(minDocFreq = 50).fit(tf.values)
 		
 		val tfidf = tf.map(x => (x._1,idf.transform(x._2))) 
 
@@ -123,8 +131,8 @@ object TFIDFRepresentation {
 
 		var centroids = articles.takeSample(false, args.clusters().toInt).map(x => x._2)
 
-		println("Start centroids")
-		println(centroids.deep.mkString("\n"))
+//		println("Start centroids")
+//		println(centroids.deep.mkString("\n"))
 
 		var iteration = 0
 
@@ -132,16 +140,13 @@ object TFIDFRepresentation {
 
 			// Get the closest centroid to each article
 			// and map them as centroid -> (article,1)
-			// Merge the articles and sum their occurrence within each centroid cluster to create a new centroid
 			val clusters = articles.map(article => (closestCentroid(article._2, centroids), (article._2, 1)))
 
+			// Merge the articles and sum their occurrence within each 
+			// centroid cluster to create a new centroid
 			val newCentroids = clusters.reduceByKeyLocally({
 				case ((articleA, occurA), (articleB, occurB)) => (mergeMap(articleA, articleB), occurA + occurB)
 			})
-
-			//			val test = clusters.groupByKey()	
-			//			println("Cluster count: " + test.count().toString())
-			//			test.foreach(println)
 
 			// Divide each value of new centroid by cluster size to get mean	
 			val average = newCentroids.map({
@@ -150,27 +155,24 @@ object TFIDFRepresentation {
 			})
 
 			// Update centroid	
-			centroids = centroids.map(oldCentroid => {
+			var cent = centroids.map(oldCentroid => {
 				average.get(oldCentroid) match {
 					case Some(newCentroid) => newCentroid
 					case None => oldCentroid
 				}
 			})
+			
+			// Compare cent and centroid to find convergence
+			// val converge = (cent zip centroids).map{case (a,b) => cosineDistance(a,b)}
 
 			iteration = iteration + 1
 
 		}
-//
-//		val printThis = averageDistanceBetweenCentroids(centroids)
-//
-//		println(printThis.mkString("\n"))
-//
-//		println("centroids")
-//		println(centroids.deep.mkString("\n"))
 		
-		val clusters = articles.map(article => (closestCentroid(article._2, centroids), article._1)).groupByKey()
-
-		clusters.values.saveAsTextFile(args.output())
+		val clusters = articles.map(article => (closestCentroid(article._2, centroids), article._1)).groupByKey().map(x => (x._1,x._2.count(x => (x.isEmpty() == false))))
+		clusters.coalesce(1, false).saveAsTextFile(args.output())
+		val printThis = averageDistanceBetweenCentroids(centroids)
+		println("***** ~~~~ Average Distance between Centroids: " + printThis.toString())
 	}
 }
 
