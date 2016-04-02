@@ -125,7 +125,7 @@ object KMedoids {
 
 		val gg = tfidf.map(x => (x._1,x._2.toSparse))
 
-		val articles = gg.map(x => (x._1,(x._2.indices zip x._2.values).toMap)).cache()
+		val articles = gg.map(x => (x._1,(x._2.indices zip x._2.values).toMap))
 
 		//		println("Data: ")
 		//		articles.foreach(println)
@@ -138,10 +138,10 @@ object KMedoids {
 
 			// Get the closest medoids to each article
 			// and map them as medoids -> (article)
-			val clusters = articles.map(article => (closestCentroid(article._2, medoids), article._2)).groupByKey()
+			val clusters = articles.map(article => (closestCentroid(article._2, medoids), article._2)).groupByKey().cache()
 
-			println("Cluster count: " + clusters.count().toString())
-			clusters.foreach(println)
+//			println("Cluster count: " + clusters.count().toString())
+//			clusters.foreach(println)
 
 			val newMedoids = clusters.map(f => {
 
@@ -170,7 +170,7 @@ object KMedoids {
 				(bestMedoid)
 			})
 
-			medoids = newMedoids.collect().clone()
+			medoids = newMedoids.toArray()
 
 			iteration = iteration + 1
 		}
