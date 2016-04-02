@@ -19,7 +19,7 @@ import org.apache.spark.rdd.RDD
 object TFIDFRepresentation {
 	val log = Logger.getLogger(getClass().getName())
 
-	def closestCentroid(vec : Map[ Int, Double ], centroids : Array[ Map[ Int, Double ] ]) : Map[ Int, Double ] = {
+	def closestCentroid(vec : Map[ Int, Double ], centroids : Array[ Map[ Int, Double ] ]) : (Int,Map[ Int, Double ]) = {
 		var distance = Double.PositiveInfinity
 		var bestIndex = 0
 		for (i <- 0 until centroids.length) {
@@ -29,7 +29,7 @@ object TFIDFRepresentation {
 				bestIndex = i
 			}
 		}
-		centroids(bestIndex)
+		(bestIndex,centroids(bestIndex))
 	}
 
 	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[ Double ] = {
@@ -140,7 +140,7 @@ object TFIDFRepresentation {
 
 			// Get the closest centroid to each article
 			// and map them as centroid -> (article,1)
-			val clusters = articles.map(article => (closestCentroid(article._2, centroids), (article._2, 1)))
+			val clusters = articles.map(article => (closestCentroid(article._2, centroids)._2, (article._2, 1)))
 
 			// Merge the articles and sum their occurrence within each 
 			// centroid cluster to create a new centroid
@@ -169,11 +169,19 @@ object TFIDFRepresentation {
 
 		}
 		
-		val clusters = articles.map(article => (closestCentroid(article._2, centroids), article._1)).groupByKey().map(x => (x._1,x._2.count(x => (x.isEmpty() == false))))
-		clusters.coalesce(1, false).saveAsTextFile(args.output())
-		val printThis = averageDistanceBetweenCentroids(centroids)
-		println("***** ~~~~ Average Distance between Centroids: ")
-		println(printThis.mkString("\n"))
+		val clusters = articles.map(article => (closestCentroid(article._2, centroids)._1, article._1))
+								
+		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
+		
+		println("***** ~~~~ Cluster -> No. of documents ")
+		numDocumentInClusters.foreach(println)
+		
+		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
+											
+		numClusterForDocuments.coalesce(1, false).saveAsTextFile(args.output())
+//		val printThis = averageDistanceBetweenCentroids(medoids)
+//		println("***** ~~~~ Average Distance between Centroids: ")
+//		println(printThis.mkString("\n"))
 	}
 }
 
