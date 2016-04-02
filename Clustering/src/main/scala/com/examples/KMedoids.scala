@@ -119,7 +119,7 @@ object KMedoids {
 		val hashingTF = new HashingTF()
 		
 		val tf = dataset.map(x => (x._1,hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 50).fit(tf.values)
+		val idf = new IDF(minDocFreq = 25).fit(tf.values)
 		
 		val tfidf = tf.map(x => (x._1,idf.transform(x._2))) 
 
@@ -178,7 +178,8 @@ object KMedoids {
 		val clusters = articles.map(article => (closestCentroid(article._2, medoids), article._1)).groupByKey().map(x => (x._1,x._2.count(x => (x.isEmpty() == false))))
 		clusters.coalesce(1, false).saveAsTextFile(args.output())
 		val printThis = averageDistanceBetweenCentroids(medoids)
-		println("***** ~~~~ Average Distance between Centroids: " + printThis.toString())
+		println("***** ~~~~ Average Distance between Centroids: ")
+		println(printThis.mkString("\n"))
 	}
 }
 
