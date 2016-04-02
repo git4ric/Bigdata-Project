@@ -167,10 +167,10 @@ object KMedoids {
 						bestMedoid = o
 					}
 				})
-				(bestMedoid)
+				(f._1,bestMedoid)
 			})
 
-			medoids = newMedoids.toArray()
+			medoids = medoids.map(f => newMedoids.lookup(f).head)
 
 			iteration = iteration + 1
 		}
