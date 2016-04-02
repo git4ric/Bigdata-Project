@@ -168,7 +168,7 @@ object KMedoids {
 					}
 				})
 				(f._1,bestMedoid)
-			})
+			}).cache()
 
 			medoids = medoids.map(f => newMedoids.lookup(f).head)
 
