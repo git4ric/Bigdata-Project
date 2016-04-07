@@ -141,7 +141,7 @@ object KMedoids {
 			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2)).groupByKey()
 
 //			println("Cluster count: " + clusters.count().toString())
-//			clusters.foreach(println)
+			clusters.foreach(println)
 
 			val newMedoids = clusters.map(f => {
 
