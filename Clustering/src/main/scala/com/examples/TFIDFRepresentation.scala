@@ -134,9 +134,9 @@ object TFIDFRepresentation {
 //		println("Start centroids")
 //		println(centroids.deep.mkString("\n"))
 
-		var iteration = 0
+		var iteration = 1
 
-		while (iteration < args.iterations().toInt) {
+		while (iteration <= args.iterations().toInt) {
 
 			// Get the closest centroid to each article
 			// and map them as centroid -> (article,1)
@@ -163,8 +163,18 @@ object TFIDFRepresentation {
 			})
 			
 			// Compare cent and centroid to find convergence
-			// val converge = (cent zip centroids).map{case (a,b) => cosineDistance(a,b)}
+			val converge = (cent zip centroids).map{case (a,b) => cosineDistance(a,b)}
+			
+			println("Printing Converge: ")
+			println(converge.mkString("\n"))
+			
+			if(converge.exists(_ < 0.00001))
+			{
+				println("***** ~~~~~  Converged in " + iteration.toString() + " iterations")
+				iteration = args.iterations().toInt;
+			}
 
+			centroids = cent map(identity)
 			iteration = iteration + 1
 
 		}
@@ -184,5 +194,3 @@ object TFIDFRepresentation {
 //		println(printThis.mkString("\n"))
 	}
 }
-
-
