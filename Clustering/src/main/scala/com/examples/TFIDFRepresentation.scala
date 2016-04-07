@@ -109,7 +109,8 @@ object TFIDFRepresentation {
 							val y = x.split("\\t")
 							val z = y(0)
 							val a = y(1).trim().split(" ").toSeq
-							(z,a)
+							val b = a.filter(x => x.length() > 3 )
+							(z,b)
 						})
 				
 //		println("Dataset: ")
@@ -164,9 +165,6 @@ object TFIDFRepresentation {
 			
 			// Compare cent and centroid to find convergence
 			val converge = (cent zip centroids).map{case (a,b) => cosineDistance(a,b)}
-			
-			println("Printing Converge: ")
-			println(converge.mkString("\n"))
 
 			if(converge.exists(a => a > 0 && a < 0.000001))
 			{
@@ -189,9 +187,7 @@ object TFIDFRepresentation {
 		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
 											
 		numClusterForDocuments.coalesce(1, false).saveAsTextFile(args.output())
-//		val printThis = averageDistanceBetweenCentroids(medoids)
-//		println("***** ~~~~ Average Distance between Centroids: ")
-//		println(printThis.mkString("\n"))
+
 	}
 }
 
