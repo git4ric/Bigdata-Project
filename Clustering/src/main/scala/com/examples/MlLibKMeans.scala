@@ -87,6 +87,7 @@ object MlLibKMeans {
 		val jobName = "TFIDFRepresentation"
 
 		val conf = new SparkConf().setAppName(jobName)
+		conf.set("spark.kryoserializer.buffer.mb","256")
 		val sc = new SparkContext(conf)
 		val args = new Conf(argv)
 		log.info("****** ~~~~~~ Input: " + args.input())
