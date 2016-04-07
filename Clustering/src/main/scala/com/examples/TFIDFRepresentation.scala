@@ -167,8 +167,7 @@ object TFIDFRepresentation {
 			
 			println("Printing Converge: ")
 			println(converge.mkString("\n"))
-			
-			
+
 			if(converge.exists(a => a > 0 && a < 0.000001))
 			{
 				println("***** ~~~~~  Converged in " + iteration.toString() + " iterations")
@@ -195,3 +194,4 @@ object TFIDFRepresentation {
 //		println(printThis.mkString("\n"))
 	}
 }
+
