@@ -113,13 +113,14 @@ object KMedoids {
 					val y = x.split("\\t")
 					val z = y(0)
 					val a = y(1).trim().split(" ").toSeq
-					(z,a)
+					val b = a.filter(x => x.length() > 2 )
+					(z,b)
 				})
 
 		val hashingTF = new HashingTF()
 		
 		val tf = dataset.map(x => (x._1,hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 50).fit(tf.values)
+		val idf = new IDF(minDocFreq = 2).fit(tf.values)
 		
 		val tfidf = tf.map(x => (x._1,idf.transform(x._2))) 
 
@@ -131,6 +132,9 @@ object KMedoids {
 		//		articles.foreach(println)
 
 		var medoids = articles.takeSample(false, args.clusters().toInt).map(x => x._2)
+		
+//		println("Start medoids")
+//		println(medoids.deep.mkString("\n"))
 
 		var iteration = 0
 
@@ -139,56 +143,43 @@ object KMedoids {
 			// Get the closest medoids to each article
 			// and map them as medoids -> (article)
 			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2)).groupByKey()
-
-			val newMedoids = clusters.map(f => {
-
+			
+			val test = clusters.map(f => {
+				
 				val m = f._1
-				var best = Double.PositiveInfinity
-				var bestMedoid = f._1
-
-				val temp = f._2
-
-				f._2.foreach(p => {
-
-					val o = p
-					var distance = 0.0
-					temp.foreach(x => {
-						distance = distance + cosineDistance(o, x)
-					})
-
-					distance = distance + cosineDistance(o, m)
-					distance = distance / temp.size
-
-					if (distance < best) {
-						best = distance
-						bestMedoid = o
-					}
+				val n = f._2
+				
+				val newMedoid = n.minBy(e => {					
+					n.foldLeft(0.0)((a,b) => a + cosineDistance(b,e))
 				})
-				(bestMedoid)
-			}).coalesce(1,false)		
+				newMedoid
+			}).coalesce(1,false).collect()
 			
-			val tempMedoids = newMedoids.collect()
 			
+	
 			// Compare cent and centroid to find convergence
-			val converge = (tempMedoids zip medoids).map{case (a,b) => cosineDistance(a,b)}
+			val converge = (test zip medoids).map{case (a,b) => cosineDistance(a,b)}
 			
-			if(converge.exists(a => a > 0 && a < 0.00001))
+			if(converge.exists(a => a > 0 && a < 0.000001))
 			{
 				println("***** ~~~~~  Converged in " + iteration.toString() + " iterations")
 				iteration = args.iterations().toInt;
 			}
 			
-			medoids = tempMedoids map(identity)
+			medoids = test map(identity)
+			
+//			println("Medoids at " + iteration.toString() + "iteration")
+//			println(medoids.deep.mkString("\n"))
 			
 			iteration = iteration + 1
 		}
 		
 		val clusters = articles.map(article => (closestCentroid(article._2, medoids)._1, article._1))
 								
-//		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
+		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
 		
-//		println("***** ~~~~ Cluster -> No. of documents ")
-//		println(numDocumentInClusters.toArray().mkString("\n"))
+		println("***** ~~~~ Cluster -> No. of documents ")
+		println(numDocumentInClusters.toArray().mkString("\n"))
 		
 		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
 											
