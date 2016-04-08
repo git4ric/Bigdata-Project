@@ -81,6 +81,46 @@ object KMedoids {
 	def medoidDistance(vec1 : Map[ Int, Double ]) : Double = {
 		0.0
 	}
+	
+	@scala.annotation.tailrec
+	def run(input: RDD[(Map[Int,Double],Iterable[Map[Int,Double]])], iteration: Int) : Array[Map[Int,Double]] = {
+		
+		val newMedoids = input.map(f => {
+			val m = f._1
+			var best = Double.PositiveInfinity
+			var bestMedoid = f._1
+
+			val temp = f._2
+
+			f._2.foreach(p => {
+
+				val o = p
+				var distance = 0.0
+				temp.foreach(x => {
+					distance = distance + cosineDistance(o, x)
+				})
+
+				distance = distance + cosineDistance(o, m)
+				distance = distance / temp.size
+
+				if (distance < best) {
+					best = distance
+					bestMedoid = o
+				}
+			})
+			(bestMedoid)
+		}).coalesce(1,false)		
+					
+		val gg = (input zip newMedoids).map(f => (f._2,f._1._2))
+		
+		if(iteration == 0)
+		{
+			newMedoids.toArray()
+		}
+		else{
+			run(gg,iteration-1)
+		}			
+	}
 
 	def main(argv : Array[ String ]) {
 
@@ -132,59 +172,24 @@ object KMedoids {
 		//		articles.foreach(println)
 
 		var medoids = articles.takeSample(false, args.clusters().toInt).map(x => x._2)
-
-		var iteration = 0
-
-		while (iteration < args.iterations().toInt) {
-
-			// Get the closest medoids to each article
-			// and map them as medoids -> (article)
-			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2)).groupByKey()
-
-//			println("Cluster count: " + clusters.count().toString())
-//			clusters.foreach(println)
-
-			val newMedoids = clusters.map(f => {
-
-				val m = f._1
-				var best = Double.PositiveInfinity
-				var bestMedoid = f._1
-
-				val temp = f._2
-
-				f._2.foreach(p => {
-
-					val o = p
-					var distance = 0.0
-					temp.foreach(x => {
-						distance = distance + cosineDistance(o, x)
-					})
-
-					distance = distance + cosineDistance(o, m)
-					distance = distance / temp.size
-
-					if (distance < best) {
-						best = distance
-						bestMedoid = o
-					}
-				})
-				(bestMedoid)
-			}).coalesce(1,false)		
-						
-			medoids = newMedoids.toArray
-			iteration = iteration + 1
-		}
 		
-		val clusters = articles.map(article => (closestCentroid(article._2, medoids)._1, article._1))
-								
-		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
+		// Get the closest medoids to each article
+		// and map them as medoids -> (article)
+		val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2)).groupByKey()
+
+		var iteration = args.iterations().toInt
+
 		
-		println("***** ~~~~ Cluster -> No. of documents ")
-		println(numDocumentInClusters.toArray().mkString("\n"))
-		
-		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
-											
-		numClusterForDocuments.coalesce(1, false).saveAsTextFile(args.output())
+//		val clusters = articles.map(article => (closestCentroid(article._2, medoids)._1, article._1))
+//								
+//		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
+//		
+//		println("***** ~~~~ Cluster -> No. of documents ")
+//		println(numDocumentInClusters.toArray().mkString("\n"))
+//		
+//		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
+//											
+//		numClusterForDocuments.coalesce(1, false).saveAsTextFile(args.output())
 //		val printThis = averageDistanceBetweenCentroids(medoids)
 //		println("***** ~~~~ Average Distance between Centroids: ")
 //		println(printThis.mkString("\n"))
