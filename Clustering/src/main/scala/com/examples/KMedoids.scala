@@ -109,7 +109,7 @@ object KMedoids {
 				}
 			})
 			(bestMedoid)
-		}).coalesce(1,false)		
+		})	
 					
 		val gg = (input zip newMedoids).map(f => (f._2,f._1._2))
 		
@@ -118,6 +118,7 @@ object KMedoids {
 			newMedoids.toArray()
 		}
 		else{
+			println("******** ~~~~ iteration: " + iteration.toString())
 			run(gg,iteration-1)
 		}			
 	}
@@ -179,13 +180,15 @@ object KMedoids {
 
 		var iteration = args.iterations().toInt
 
+		medoids = run(clusters,iteration) map(identity)
+		val res = articles.map(article => (closestCentroid(article._2, medoids)._1, article._1))
+								
+		val numDocumentInClusters = res.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
 		
-//		val clusters = articles.map(article => (closestCentroid(article._2, medoids)._1, article._1))
-//								
-//		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
-//		
 //		println("***** ~~~~ Cluster -> No. of documents ")
 //		println(numDocumentInClusters.toArray().mkString("\n"))
+		
+		numDocumentInClusters.coalesce(1,false).saveAsTextFile(args.output())
 //		
 //		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
 //											
@@ -195,6 +198,3 @@ object KMedoids {
 //		println(printThis.mkString("\n"))
 	}
 }
-
-
-
