@@ -110,7 +110,7 @@ object KMeansOld {
 			.map(x => x.replaceAll("#Type: regular article", "")
 				.replaceAll("\\W", " ")
 				.replaceAll("\\s\\s+", " ")
-				.split(" ").filter(x => x.length() > 2).toSeq.drop(1))
+				.split(" ").filter(x => x.length() > 3).toSeq.drop(1))
 			
 //		val dataset = sc.textFile(args.input())
 //						.map(x => {
@@ -127,7 +127,7 @@ object KMeansOld {
 		val hashingTF = new HashingTF()
 		
 		val tf = dataset.map(x => (hashingTF.transform(x))).cache()
-		val idf = new IDF(minDocFreq = 5).fit(tf)
+		val idf = new IDF(minDocFreq = 50).fit(tf)
 		
 		val tfidf = tf.map(x => idf.transform(x)) 
 
