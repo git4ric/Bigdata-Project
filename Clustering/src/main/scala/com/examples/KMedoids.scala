@@ -170,7 +170,7 @@ object KMedoids {
 				(bestMedoid)
 			}).coalesce(1,false)		
 			
-			medoids = medoids.toArray
+			medoids = newMedoids.toArray
 			iteration = iteration + 1
 		}
 		
