@@ -112,14 +112,14 @@ object KMedoids {
 					val y = x.split("\\t")
 					val z = y(0)
 					val a = y(1).trim().split(" ").toSeq
-					val b = a.filter(x => x.length() > 3 )
+					val b = a.filter(x => x.length() > 4)
 					(z,b)
 				})
 
 		val hashingTF = new HashingTF()
 		
 		val tf = dataset.map(x => (x._1,hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 80).fit(tf.values)
+		val idf = new IDF(minDocFreq = 110).fit(tf.values)
 		
 		val tfidf = tf.map(x => (x._1,idf.transform(x._2))) 
 
@@ -157,8 +157,9 @@ object KMedoids {
 				(newMedoid)
 			}).coalesce(1, false).collect()
 			
-			val converge = (test zip medoids).map{case (a,b) => cosineDistance(a,b)}.filter(x => (x > 0 && x < 0.000001))
+			var converge = (test zip medoids).map{case (a,b) => cosineDistance(a,b)}.filter(x => (x > 0 && x < 0.000001))
 						
+			println("Converge length " + converge.length.toString() + " at " + iteration.toString() + " iteration")
 			if(converge.length >= (args.clusters().toLong/2))
 			{
 				println("***** ~~~~~  Converged in " + iteration.toString() + " iterations")
