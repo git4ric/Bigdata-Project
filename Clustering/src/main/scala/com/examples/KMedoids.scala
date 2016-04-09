@@ -78,10 +78,6 @@ object KMedoids {
 		merged
 	}
 
-	def medoidDistance(vec1 : Map[ Int, Double ]) : Double = {
-		0.0
-	}
-
 	def main(argv : Array[ String ]) {
 
 		var logger = Logger.getLogger(this.getClass())
@@ -97,8 +93,8 @@ object KMedoids {
 		log.info("****** ~~~~~~ No. of iterations: " + args.iterations())
 		FileSystem.get(sc.hadoopConfiguration).delete(new Path(args.output()), true)
 
-		val hconf = new Configuration
-		hconf.set("textinputformat.record.delimiter", "#Article:")
+//		val hconf = new Configuration
+//		hconf.set("textinputformat.record.delimiter", "#Article:")
 
 //		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
 //			.map(x => x._2.toString())
@@ -123,7 +119,7 @@ object KMedoids {
 		val hashingTF = new HashingTF()
 		
 		val tf = dataset.map(x => (x._1,hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 50).fit(tf.values)
+		val idf = new IDF(minDocFreq = 80).fit(tf.values)
 		
 		val tfidf = tf.map(x => (x._1,idf.transform(x._2))) 
 
@@ -136,8 +132,8 @@ object KMedoids {
 
 		var medoids = articles.takeSample(false, args.clusters().toInt).map(x => x._2)
 		
-		println("Start medoids")
-		println(medoids.deep.mkString("\n"))
+//		println("Start medoids")
+//		println(medoids.deep.mkString("\n"))
 
 		var iteration = 1
 
@@ -147,8 +143,8 @@ object KMedoids {
 			// and map them as medoids -> (article)
 			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2)).groupByKey()
 			
-			println("Clusters: ")
-			clusters.foreach(println)
+//			println("Clusters: ")
+//			clusters.foreach(println)
 			
 			val test = clusters.map(f => {
 				
@@ -158,23 +154,21 @@ object KMedoids {
 				val newMedoid = n.minBy(e => {					
 					n.foldLeft(0.0)((a,b) => a + cosineDistance(b,e))
 				})
-				(cosineDistance(f._1,newMedoid),newMedoid)
-			}).coalesce(1, false)
+				(newMedoid)
+			}).coalesce(1, false).collect()
 			
-			val newMedoids = test.values.collect()
-			
-			val distances = test.keys.filter(x => ((x > 0) && (x < 0.0000001))).count()
+			val converge = (test zip medoids).map{case (a,b) => cosineDistance(a,b)}.filter(x => (x > 0 && x < 0.000001))
 						
-			if(distances > (args.clusters().toLong/2))
+			if(converge.length >= (args.clusters().toLong/2))
 			{
 				println("***** ~~~~~  Converged in " + iteration.toString() + " iterations")
 				iteration = args.iterations().toInt;
 			}
 			
-			medoids = newMedoids map(identity)
+			medoids = test map(identity)
 			
-			println("Medoids at " + iteration.toString() + " iteration")
-			println(medoids.deep.mkString("\n"))
+//			println("Medoids at " + iteration.toString() + " iteration")
+//			println(medoids.deep.mkString("\n"))
 			
 			iteration = iteration + 1
 		}
