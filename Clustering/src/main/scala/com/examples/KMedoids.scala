@@ -19,7 +19,7 @@ import org.apache.spark.rdd.RDD
 object KMedoids {
 	val log = Logger.getLogger(getClass().getName())
 
-	def closestCentroid(vec : Map[ Int, Double ], centroids : Array[ Map[ Int, Double ] ]) : (Int,Map[ Int, Double ]) = {
+	def closestCentroid(vec : Map[ Int, Double ], centroids : Array[ Map[ Int, Double ] ]) : (Int, Map[ Int, Double ]) = {
 		var distance = Double.PositiveInfinity
 		var bestIndex = 0
 		for (i <- 0 until centroids.length) {
@@ -29,7 +29,7 @@ object KMedoids {
 				bestIndex = i
 			}
 		}
-		(bestIndex,centroids(bestIndex))
+		(bestIndex, centroids(bestIndex))
 	}
 
 	def averageDistanceBetweenCentroids(centroids : Array[ Map[ Int, Double ] ]) : Array[ Double ] = {
@@ -93,47 +93,47 @@ object KMedoids {
 		log.info("****** ~~~~~~ No. of iterations: " + args.iterations())
 		FileSystem.get(sc.hadoopConfiguration).delete(new Path(args.output()), true)
 
-//		val hconf = new Configuration
-//		hconf.set("textinputformat.record.delimiter", "#Article:")
+		//		val hconf = new Configuration
+		//		hconf.set("textinputformat.record.delimiter", "#Article:")
 
-//		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
-//			.map(x => x._2.toString())
-//			.filter(x => x.isEmpty() == false)
-//			.map(x => { val y = x.replaceAll("#Type: regular article", "")
-//						.replaceAll("[^a-zA-Z]", " ")
-//						.replaceAll("\\s\\s+", " ")
-//						.split(" ").toSeq.drop(1)
-//						
-//				(y.head,y)
-//			})
-				
+		//		val dataset = sc.newAPIHadoopFile(args.input(), classOf[ TextInputFormat ], classOf[ LongWritable ], classOf[ Text ], hconf)
+		//			.map(x => x._2.toString())
+		//			.filter(x => x.isEmpty() == false)
+		//			.map(x => { val y = x.replaceAll("#Type: regular article", "")
+		//						.replaceAll("[^a-zA-Z]", " ")
+		//						.replaceAll("\\s\\s+", " ")
+		//						.split(" ").toSeq.drop(1)
+		//						
+		//				(y.head,y)
+		//			})
+
 		val dataset = sc.textFile(args.input())
-				.map(x => {
-					val y = x.split("\\t")
-					val z = y(0)
-					val a = y(1).trim().split(" ").toSeq
-					val b = a.filter(x => x.length() > 4)
-					(z,b)
-				})
+			.map(x => {
+				val y = x.split("\\t")
+				val z = y(0)
+				val a = y(1).trim().split(" ").toSeq
+				val b = a.filter(x => x.length() > 4)
+				(z, b)
+			})
 
 		val hashingTF = new HashingTF()
-		
-		val tf = dataset.map(x => (x._1,hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 110).fit(tf.values)
-		
-		val tfidf = tf.map(x => (x._1,idf.transform(x._2))) 
 
-		val gg = tfidf.map(x => (x._1,x._2.toSparse))
+		val tf = dataset.map(x => (x._1, hashingTF.transform(x._2))).cache()
+		val idf = new IDF(minDocFreq = 100).fit(tf.values)
 
-		val articles = gg.map(x => (x._1,(x._2.indices zip x._2.values).toMap)).cache()
+		val tfidf = tf.map(x => (x._1, idf.transform(x._2)))
+
+		val gg = tfidf.map(x => (x._1, x._2.toSparse))
+
+		val articles = gg.map(x => (x._1, (x._2.indices zip x._2.values).toMap)).cache()
 
 		//		println("Data: ")
 		//		articles.foreach(println)
 
 		var medoids = articles.takeSample(false, args.clusters().toInt).map(x => x._2)
-		
-//		println("Start medoids")
-//		println(medoids.deep.mkString("\n"))
+
+		//		println("Start medoids")
+		//		println(medoids.deep.mkString("\n"))
 
 		var iteration = 1
 
@@ -142,50 +142,46 @@ object KMedoids {
 			// Get the closest medoids to each article
 			// and map them as medoids -> (article)
 			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2)).groupByKey()
-			
+
 //			println("Clusters: ")
 //			clusters.foreach(println)
-			
-			val test = clusters.map(f => {
-				
-				val m = f._1
-				val n = f._2
-				
-				val newMedoid = n.minBy(e => {					
-					n.foldLeft(0.0)((a,b) => a + cosineDistance(b,e))
+
+			var test = clusters.map(f => {
+				f._2.minBy(e => {
+					f._2.foldLeft(0.0)((a, b) => a + cosineDistance(b, e))
 				})
-				(newMedoid)
 			}).coalesce(1, false).collect()
-			
-			var converge = (test zip medoids).map{case (a,b) => cosineDistance(a,b)}.filter(x => (x > 0 && x < 0.000001))
-						
-			println("Converge length " + converge.length.toString() + " at " + iteration.toString() + " iteration")
-			if(converge.length >= (args.clusters().toLong/2))
-			{
+
+			var converge = (test zip medoids).map { case (a, b) => cosineDistance(a, b) }
+//			println("Converge at " + iteration.toString() + " iteration")
+//			println(converge.deep.mkString("\n"))
+
+//			println("Converge length " + converge.length.toString() + " at " + iteration.toString() + " iteration")
+			if (converge.filter(x => (x >= 0 && x < 0.000001)).length >= (args.clusters().toLong / 2)) {
 				println("***** ~~~~~  Converged in " + iteration.toString() + " iterations")
 				iteration = args.iterations().toInt;
 			}
 			
-			medoids = test map(identity)
-			
-//			println("Medoids at " + iteration.toString() + " iteration")
-//			println(medoids.deep.mkString("\n"))
-			
+			medoids = test map (identity)
+
+			//			println("Medoids at " + iteration.toString() + " iteration")
+			//			println(medoids.deep.mkString("\n"))
+
 			iteration = iteration + 1
 		}
-		
+
 		val clusters = articles.map(article => (closestCentroid(article._2, medoids)._1, article._1))
-								
-		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => (x.isEmpty() == false))))
-		
+
+		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1, f._2.count(x => (x.isEmpty() == false))))
+
 		println("***** ~~~~ Cluster -> No. of documents ")
 		println(numDocumentInClusters.toArray().mkString("\n"))
-		
-		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
-											
+
+		val numClusterForDocuments = clusters.map(f => (f._2, f._1)).groupByKey()
+
 		numClusterForDocuments.coalesce(1, false).saveAsTextFile(args.output())
-//		val printThis = averageDistanceBetweenCentroids(medoids)
-//		println("***** ~~~~ Average Distance between Centroids: ")
-//		println(printThis.mkString("\n"))
+		//		val printThis = averageDistanceBetweenCentroids(medoids)
+		//		println("***** ~~~~ Average Distance between Centroids: ")
+		//		println(printThis.mkString("\n"))
 	}
 }
