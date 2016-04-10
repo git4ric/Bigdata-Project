@@ -142,9 +142,8 @@ object KMedoids {
 			// Get the closest medoids to each article
 			// and map them as medoids -> (article)
 			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2))
-								.combineByKey((value) => List(value),
-											(aggr: List[Map[Int,Double]], value) => aggr ::: List(value),
-											(aggr1: List[Map[Int,Double]], aggr2: List[Map[Int,Double]]) => aggr1 ::: aggr2)
+								.combineByKey((value: Map[Int,Double]) => List(value),(aggr: List[Map[Int,Double]], value: Map[Int,Double]) => aggr ::: List(value),
+											(aggr1: List[Map[Int,Double]], aggr2: List[Map[Int,Double]]) => aggr1 ::: aggr2,1)						
 
 //			println("Clusters: ")
 //			clusters.foreach(println)
