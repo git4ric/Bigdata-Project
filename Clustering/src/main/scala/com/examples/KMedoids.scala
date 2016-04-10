@@ -112,14 +112,14 @@ object KMedoids {
 				val y = x.split("\\t")
 				val z = y(0)
 				val a = y(1).trim().split(" ").toSeq
-				val b = a.filter(x => x.length() > 4)
+				val b = a.filter(x => x.length() > 5)
 				(z, b)
 			})
 
 		val hashingTF = new HashingTF()
 
 		val tf = dataset.map(x => (x._1, hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 100).fit(tf.values)
+		val idf = new IDF(minDocFreq = 60).fit(tf.values)
 
 		val tfidf = tf.map(x => (x._1, idf.transform(x._2)))
 
@@ -141,7 +141,10 @@ object KMedoids {
 
 			// Get the closest medoids to each article
 			// and map them as medoids -> (article)
-			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2)).groupByKey()
+			val clusters = articles.map(article => (closestCentroid(article._2, medoids)._2, article._2))
+								.combineByKey((value) => List(value),
+											(aggr: List[Map[Int,Double]], value) => aggr ::: List(value),
+											(aggr1: List[Map[Int,Double]], aggr2: List[Map[Int,Double]]) => aggr1 ::: aggr2)
 
 //			println("Clusters: ")
 //			clusters.foreach(println)
@@ -157,7 +160,7 @@ object KMedoids {
 //			println(converge.deep.mkString("\n"))
 
 //			println("Converge length " + converge.length.toString() + " at " + iteration.toString() + " iteration")
-			if (converge.filter(x => (x >= 0 && x < 0.000001)).length >= (args.clusters().toLong / 2)) {
+			if (converge.filter(x => (x >= 0 && x < 0.000001)).length >= (args.clusters().toLong * 0.8)) {
 				println("***** ~~~~~  Converged in " + iteration.toString() + " iterations")
 				iteration = args.iterations().toInt;
 			}
