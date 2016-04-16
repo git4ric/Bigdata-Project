@@ -152,7 +152,7 @@ object KMedoids {
 				f._2.minBy(e => {
 					f._2.foldLeft(0.0)((a, b) => a + cosineDistance(b, e))
 				})
-			}).coalesce(1, false).collect()
+			}).toArray
 
 			var converge = (test zip medoids).map { case (a, b) => cosineDistance(a, b) }
 //			println("Converge at " + iteration.toString() + " iteration")
