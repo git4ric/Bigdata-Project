@@ -15,6 +15,8 @@ import org.apache.spark.mllib.linalg.Vector
 import org.apache.spark.mllib.feature.IDF
 import org.apache.hadoop.io.{ LongWritable, Text }
 import org.apache.spark.rdd.RDD
+import org.apache.spark.ml.feature.StopWordsRemover
+import org.apache.spark.sql.SQLContext
 
 class Conf(args : Seq[ String ]) extends ScallopConf(args) {
 	mainOptions = Seq(input, output, clusters, iterations)
@@ -112,6 +114,15 @@ object KMeansOld {
 				.replaceAll("\\s\\s+", " ")
 				.split(" ").filter(x => x.length() > 3).toSeq.drop(1))
 			
+				
+//		val remover = new StopWordsRemover()
+//		  .setInputCol("raw")
+//		  .setOutputCol("filtered")
+//		  
+//		val sqlContext = new SQLContext(sc)
+//		val dataSet = sqlContext.createDataFrame(dataset).toDF("id", "raw")
+		
+//		remover.transform(dataSet).show()
 //		val dataset = sc.textFile(args.input())
 //						.map(x => {
 //							val y = x.split("\\t")
@@ -127,7 +138,7 @@ object KMeansOld {
 		val hashingTF = new HashingTF()
 		
 		val tf = dataset.map(x => (hashingTF.transform(x))).cache()
-		val idf = new IDF(minDocFreq = 50).fit(tf)
+		val idf = new IDF(minDocFreq = 60).fit(tf)
 		
 		val tfidf = tf.map(x => idf.transform(x)) 
 
@@ -188,13 +199,13 @@ object KMeansOld {
 		val clusters = articles.map(article => (closestCentroid(article, centroids)._1,article))
 								
 		val numDocumentInClusters = clusters.groupByKey().map(f => (f._1,f._2.count(x => x.isEmpty == false )))
-		
-		println("***** ~~~~ Cluster -> No. of documents ")
-		println(numDocumentInClusters.toArray().mkString("\n"))
 //		
+//		println("***** ~~~~ Cluster -> No. of documents ")
+//		println(numDocumentInClusters.toArray().mkString("\n"))
+		
 //		val numClusterForDocuments = clusters.map(f => (f._2,f._1)).groupByKey()
-//											
-//		numClusterForDocuments.coalesce(1, false).saveAsTextFile(args.output())
+											
+		numDocumentInClusters.coalesce(1, false).saveAsTextFile(args.output())
 
 	}
 }
