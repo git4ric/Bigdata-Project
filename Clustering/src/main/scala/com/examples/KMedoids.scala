@@ -112,7 +112,7 @@ object KMedoids {
 				val y = x.split("\\t")
 				val z = y(0)
 				val a = y(1).trim().split(" ").toSeq
-				val b = a.filter(x => x.length() > 5)
+				val b = a.filter(x => x.length() >= 4)
 				(z, b)
 			})
 
@@ -152,7 +152,7 @@ object KMedoids {
 				f._2.minBy(e => {
 					f._2.foldLeft(0.0)((a, b) => a + cosineDistance(b, e))
 				})
-			}).toArray
+			}).coalesce(1, false).collect()
 
 			var converge = (test zip medoids).map { case (a, b) => cosineDistance(a, b) }
 //			println("Converge at " + iteration.toString() + " iteration")
