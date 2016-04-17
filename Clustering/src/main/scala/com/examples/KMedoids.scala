@@ -119,7 +119,7 @@ object KMedoids {
 		val hashingTF = new HashingTF()
 
 		val tf = dataset.map(x => (x._1, hashingTF.transform(x._2))).cache()
-		val idf = new IDF(minDocFreq = 60).fit(tf.values)
+		val idf = new IDF(minDocFreq = 110).fit(tf.values)
 
 		val tfidf = tf.map(x => (x._1, idf.transform(x._2)))
 
